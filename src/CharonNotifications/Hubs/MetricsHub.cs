@@ -20,7 +20,12 @@ public class MetricsHub : Hub
             createdAt = metric.CreatedAt.ToString("O") // ISO 8601 format
         };
 
+        // Send actual metric data for instant Latest Values update
         await Clients.All.SendAsync("MetricReceived", metricDto);
+        
+        // Also send DataUpdated notification for chart/aggregation refresh via GraphQL
+        await Clients.All.SendAsync("DataUpdated");
     }
 }
+
 
