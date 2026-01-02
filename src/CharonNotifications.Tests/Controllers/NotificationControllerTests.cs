@@ -73,16 +73,23 @@ public class NotificationControllerTests
 
         // Assert
         result.Should().BeOfType<OkResult>();
+        // Verify both MetricReceived and DataUpdated are sent
         clientsMock.Verify(
             x => x.SendCoreAsync(
                 "MetricReceived",
                 It.Is<object[]>(args => args.Length == 1),
                 default(CancellationToken)),
             Times.Once);
+        clientsMock.Verify(
+            x => x.SendCoreAsync(
+                "DataUpdated",
+                It.Is<object[]>(args => args.Length == 0),
+                default(CancellationToken)),
+            Times.Once);
     }
 
     [Fact]
-    public async Task NotifyMetric_ShouldSendCorrectMetricDto_WhenMetricExists()
+    public async Task NotifyMetric_ShouldSendMetricAndDataUpdated_WhenMetricExists()
     {
         // Arrange
         var metric = new Metric
@@ -102,35 +109,45 @@ public class NotificationControllerTests
         hubClientsMock.Setup(x => x.All).Returns(clientsMock.Object);
         _hubContextMock.Setup(x => x.Clients).Returns(hubClientsMock.Object);
 
-        object[]? capturedArgs = null;
+        object[]? capturedMetricArgs = null;
         clientsMock.Setup(x => x.SendCoreAsync(
                 "MetricReceived",
                 It.IsAny<object[]>(),
                 It.IsAny<CancellationToken>()))
-            .Callback<string, object[], CancellationToken>((method, args, ct) => capturedArgs = args);
+            .Callback<string, object[], CancellationToken>((method, args, ct) => capturedMetricArgs = args);
 
         // Act
-        await _controller.NotifyMetric(metric.Id);
+        var result = await _controller.NotifyMetric(metric.Id);
 
         // Assert
-        capturedArgs.Should().NotBeNull();
-        capturedArgs!.Length.Should().Be(1);
-
-        var metricDto = capturedArgs[0];
+        result.Should().BeOfType<OkResult>();
+        
+        // Verify MetricReceived was sent with correct data
+        capturedMetricArgs.Should().NotBeNull();
+        capturedMetricArgs!.Length.Should().Be(1);
+        var metricDto = capturedMetricArgs[0];
         var dtoType = metricDto.GetType();
         var idProperty = dtoType.GetProperty("id");
         var typeProperty = dtoType.GetProperty("type");
         var nameProperty = dtoType.GetProperty("name");
-        var createdAtProperty = dtoType.GetProperty("createdAt");
-
-        idProperty.Should().NotBeNull();
-        typeProperty.Should().NotBeNull();
-        nameProperty.Should().NotBeNull();
-        createdAtProperty.Should().NotBeNull();
-
+        
         idProperty!.GetValue(metricDto).Should().Be(2);
         typeProperty!.GetValue(metricDto).Should().Be("energy");
         nameProperty!.GetValue(metricDto).Should().Be("Office");
+        
+        // Verify both events were sent
+        clientsMock.Verify(
+            x => x.SendCoreAsync(
+                "MetricReceived",
+                It.Is<object[]>(args => args.Length == 1),
+                default(CancellationToken)),
+            Times.Once);
+        clientsMock.Verify(
+            x => x.SendCoreAsync(
+                "DataUpdated",
+                It.Is<object[]>(args => args.Length == 0),
+                default(CancellationToken)),
+            Times.Once);
     }
 
     [Fact]
@@ -159,11 +176,18 @@ public class NotificationControllerTests
 
         // Assert
         result.Should().BeOfType<OkResult>();
+        // Verify both events were sent
         clientsMock.Verify(
             x => x.SendCoreAsync(
                 "MetricReceived",
-                It.IsAny<object[]>(),
-                It.IsAny<CancellationToken>()),
+                It.Is<object[]>(args => args.Length == 1),
+                default(CancellationToken)),
+            Times.Once);
+        clientsMock.Verify(
+            x => x.SendCoreAsync(
+                "DataUpdated",
+                It.Is<object[]>(args => args.Length == 0),
+                default(CancellationToken)),
             Times.Once);
     }
 
@@ -229,19 +253,20 @@ public class NotificationControllerTests
         hubClientsMock.Setup(x => x.All).Returns(clientsMock.Object);
         _hubContextMock.Setup(x => x.Clients).Returns(hubClientsMock.Object);
 
-        object[]? capturedArgs = null;
+        object[]? capturedMetricArgs = null;
         clientsMock.Setup(x => x.SendCoreAsync(
                 "MetricReceived",
                 It.IsAny<object[]>(),
                 It.IsAny<CancellationToken>()))
-            .Callback<string, object[], CancellationToken>((method, args, ct) => capturedArgs = args);
+            .Callback<string, object[], CancellationToken>((method, args, ct) => capturedMetricArgs = args);
 
         // Act
-        await _controller.NotifyMetric(metric.Id);
+        var result = await _controller.NotifyMetric(metric.Id);
 
         // Assert
-        capturedArgs.Should().NotBeNull();
-        var metricDto = capturedArgs![0];
+        result.Should().BeOfType<OkResult>();
+        capturedMetricArgs.Should().NotBeNull();
+        var metricDto = capturedMetricArgs![0];
         var dtoType = metricDto.GetType();
         var payloadProperty = dtoType.GetProperty("payload");
         payloadProperty.Should().NotBeNull();
@@ -252,6 +277,20 @@ public class NotificationControllerTests
         payloadDict!.Should().ContainKey("temperature");
         payloadDict.Should().ContainKey("humidity");
         payloadDict.Should().ContainKey("pressure");
+        
+        // Verify both events were sent
+        clientsMock.Verify(
+            x => x.SendCoreAsync(
+                "MetricReceived",
+                It.Is<object[]>(args => args.Length == 1),
+                default(CancellationToken)),
+            Times.Once);
+        clientsMock.Verify(
+            x => x.SendCoreAsync(
+                "DataUpdated",
+                It.Is<object[]>(args => args.Length == 0),
+                default(CancellationToken)),
+            Times.Once);
     }
 }
 

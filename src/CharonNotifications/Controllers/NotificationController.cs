@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using CharonNotifications.Hubs;
-using CharonDbContext.Models;
 using CharonDbContext.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -52,8 +51,12 @@ public class NotificationController : ControllerBase
                 createdAt = metric.CreatedAt.ToString("O") // ISO 8601 format
             };
 
+            // Send actual metric data via SignalR for instant Latest Values update
+            // Also send DataUpdated notification for chart/aggregation refresh via GraphQL
             await _hubContext.Clients.All.SendAsync("MetricReceived", metricDto);
-            _logger.LogInformation("Metric {MetricId} notification sent to SignalR clients", id);
+            await _hubContext.Clients.All.SendAsync("DataUpdated");
+            
+            _logger.LogInformation("Metric {MetricId} sent to SignalR clients", id);
 
             return Ok();
         }
@@ -64,4 +67,5 @@ public class NotificationController : ControllerBase
         }
     }
 }
+
 
